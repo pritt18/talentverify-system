@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  db:
+    image: mariadb:10.4
+    container_name: cv_matcher_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: cv_verifier_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  web:
+    build: .
+    container_name: cv_matcher_web
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=rootpassword
+      - MYSQL_DATABASE=cv_verifier_db
+      - PORT=8000
+    depends_on:
+      - db
+
+volumes:
+  mariadb_data:

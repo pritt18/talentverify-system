@@ -1,0 +1,197 @@
+{
+  "name": "CV Extractor & LinkedIn Verification Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload-cv",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "CV Upload Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "cv-upload-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/api/webhook/cv-parse",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"raw_text\": \"{{ $json.body?.raw_text || $json.body?.text || '' }}\",\n  \"file_path\": \"{{ $json.body?.file_path || '' }}\"\n}",
+        "options": {}
+      },
+      "id": "2",
+      "name": "Extract CV Information",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO candidates (\n  name, email, phone, linkedin_url, educational_background, professional_background, experiences, skills, match_status\n) VALUES (\n  '{{ $json.data.name.replace(/'/g, \"\\\\'\") }}',\n  '{{ $json.data.email }}',\n  '{{ $json.data.phone }}',\n  '{{ $json.data.linkedin_url }}',\n  '{{ ($json.data.educational_background || '').replace(/'/g, \"\\\\'\") }}',\n  '{{ ($json.data.professional_background || '').replace(/'/g, \"\\\\'\") }}',\n  '{{ ($json.data.experiences || '').replace(/'/g, \"\\\\'\") }}',\n  '{{ ($json.data.skills || '').replace(/'/g, \"\\\\'\") }}',\n  'Pending'\n);"
+      },
+      "id": "3",
+      "name": "Save Candidate to MySQL (Pending)",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        680,
+        300
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "mysql-cv-verifier-db",
+          "name": "MySQL cv_verifier_db"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/api/webhook/linkedin-scrape",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"linkedin_url\": \"{{ $('Extract CV Information').item.json.data.linkedin_url }}\",\n  \"candidate_name\": \"{{ $('Extract CV Information').item.json.data.name }}\"\n}",
+        "options": {}
+      },
+      "id": "4",
+      "name": "Scrape LinkedIn Profile",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cvData = $('Extract CV Information').first().json.data;\nconst liData = $input.first().json.data;\nconst candidateInsert = $('Save Candidate to MySQL (Pending)').first().json;\nconst candidateId = candidateInsert.insertId || candidateInsert.lastrowid || 1;\n\nconst cvName = (cvData.name || '').trim().toLowerCase();\nconst liName = (liData.name || '').trim().toLowerCase();\n\nlet score = 0;\nconst reasons = [];\n\n// 1. Name Match Check\nconst nameMatched = cvName.length > 0 && (cvName === liName || cvName.includes(liName) || liName.includes(cvName));\nif (nameMatched) {\n  score += 45;\n  reasons.push(`Name Match: '${cvData.name}' matches LinkedIn profile name '${liData.name}'.`);\n} else {\n  reasons.push(`Name Mismatch: CV name '${cvData.name}' does not match LinkedIn name '${liData.name}'.`);\n}\n\n// 2. Experience / Company Check\nconst cvExp = (cvData.experiences + ' ' + cvData.professional_background).toLowerCase();\nconst liExp = ((liData.experience || '') + ' ' + (liData.headline || '') + ' ' + (liData.current_company || '')).toLowerCase();\nconst expMatched = /softspire|software|developer|engineer|intern/i.test(cvExp) && /softspire|software|developer|engineer|intern/i.test(liExp);\nif (expMatched) {\n  score += 25;\n  reasons.push('Experience Match: Professional background and tech roles correspond.');\n} else {\n  reasons.push('Experience Mismatch: No significant professional overlap.');\n}\n\n// 3. Education Check\nconst cvEdu = (cvData.educational_background || '').toLowerCase();\nconst liEdu = (liData.education || '').toLowerCase();\nconst eduMatched = /college|university|engineering|bachelor|degree|kbj|snjb/i.test(cvEdu) && /college|university|engineering|bachelor|degree|kbj|snjb/i.test(liEdu);\nif (eduMatched) {\n  score += 15;\n  reasons.push('Education Match: University / degree qualifications align.');\n} else {\n  reasons.push('Education Mismatch: Academic background does not align.');\n}\n\n// 4. Skills Check\nconst cvSkills = (cvData.skills || '').toLowerCase();\nconst liSkills = (Array.isArray(liData.skills) ? liData.skills.join(' ') : '').toLowerCase();\nconst skillsMatched = /python|react|mysql|javascript|node/i.test(cvSkills) && /python|react|mysql|javascript|node/i.test(liSkills);\nif (skillsMatched) {\n  score += 15;\n  reasons.push('Skills Match: Core technical stack matches.');\n} else {\n  reasons.push('Skills: Limited technology stack alignment.');\n}\n\nlet matchStatus = 'LinkedIn profile doesn\\'t match';\nif (nameMatched && score >= 60) {\n  matchStatus = 'Matched with LinkedIn profile';\n}\n\nreturn [{\n  json: {\n    candidate_id: candidateId,\n    candidate_name: cvData.name,\n    linkedin_url: cvData.linkedin_url,\n    match_status: matchStatus,\n    match_score: score,\n    match_reason: `Score: ${score}/100. ` + reasons.join(' '),\n    cv_data: cvData,\n    linkedin_data: liData\n  }\n}];"
+      },
+      "id": "5",
+      "name": "Cross Check CV vs LinkedIn",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE candidates \nSET match_status = '{{ $json.match_status }}',\n    match_score = {{ $json.match_score }},\n    match_reason = '{{ $json.match_reason.replace(/'/g, \"\\\\'\") }}'\nWHERE id = {{ $json.candidate_id }};"
+      },
+      "id": "6",
+      "name": "Update MySQL Match Status",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        1340,
+        300
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "mysql-cv-verifier-db",
+          "name": "MySQL cv_verifier_db"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"candidate_id\": {{ $('Cross Check CV vs LinkedIn').item.json.candidate_id }},\n  \"match_status\": \"{{ $('Cross Check CV vs LinkedIn').item.json.match_status }}\",\n  \"match_score\": {{ $('Cross Check CV vs LinkedIn').item.json.match_score }},\n  \"match_reason\": \"{{ $('Cross Check CV vs LinkedIn').item.json.match_reason }}\",\n  \"candidate\": $('Cross Check CV vs LinkedIn').item.json.cv_data,\n  \"linkedin_profile\": $('Cross Check CV vs LinkedIn').item.json.linkedin_data\n}",
+        "options": {}
+      },
+      "id": "7",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "CV Upload Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract CV Information",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract CV Information": {
+      "main": [
+        [
+          {
+            "node": "Save Candidate to MySQL (Pending)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Candidate to MySQL (Pending)": {
+      "main": [
+        [
+          {
+            "node": "Scrape LinkedIn Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape LinkedIn Profile": {
+      "main": [
+        [
+          {
+            "node": "Cross Check CV vs LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cross Check CV vs LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Update MySQL Match Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update MySQL Match Status": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

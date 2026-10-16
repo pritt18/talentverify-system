@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Verification Portal | Automated Profile Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Bar -->
+        <header class="navbar">
+            <div class="nav-brand">
+                <div class="logo-box">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <path d="M9 15l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="logo-title">Candidate Verification Portal</h1>
+                    <p class="logo-subtitle">Automated Resume Intelligence & LinkedIn Profile Verification</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="main-layout">
+            <!-- Left Card: Upload Resume -->
+            <section class="card upload-card">
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <div class="header-icon-circle">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </div>
+                        <h2>Upload Candidate Resume</h2>
+                    </div>
+                    <span class="header-badge">PDF or DOCX</span>
+                </div>
+                <div class="card-body">
+                    <form id="uploadForm">
+                        <div class="dropzone" id="dropzone">
+                            <input type="file" id="cvFileInput" accept=".pdf,.docx,.doc" class="file-input">
+                            <div class="dropzone-content">
+                                <div class="upload-icon-wrapper">
+                                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                                        <polyline points="9 15 12 12 15 15"></polyline>
+                                    </svg>
+                                </div>
+                                <h3 id="fileNameDisplay">Drag and drop resume here, or <span class="browse-link">browse files</span></h3>
+                                <p class="file-hints">Supports PDF or DOCX documents up to 15MB</p>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block" id="btnSubmit">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <span class="btn-text">Extract & Verify Profile</span>
+                            <span class="spinner" id="submitSpinner"></span>
+                        </button>
+                    </form>
+
+                    <!-- Realtime Processing Tracker -->
+                    <div class="pipeline-tracker" id="pipelineTracker" style="display: none;">
+                        <div class="pipeline-step" id="step1">
+                            <span class="step-num">1</span>
+                            <span>Parsing resume & extracting profile credentials</span>
+                        </div>
+                        <div class="pipeline-step" id="step2">
+                            <span class="step-num">2</span>
+                            <span>Recording candidate profile in database</span>
+                        </div>
+                        <div class="pipeline-step" id="step3">
+                            <span class="step-num">3</span>
+                            <span>Fetching candidate LinkedIn profile data</span>
+                        </div>
+                        <div class="pipeline-step" id="step4">
+                            <span class="step-num">4</span>
+                            <span>Cross-referencing credentials & verifying profile authenticity</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Card: Live Verification Decision -->
+            <section class="card result-card" id="resultCard">
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <div class="header-icon-circle">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        </div>
+                        <h2>Verification Report</h2>
+                    </div>
+                    <span class="badge badge-waiting" id="matchBadge">Pending Upload</span>
+                </div>
+                <div class="card-body">
+                    <!-- Elegant Empty State -->
+                    <div class="placeholder-box" id="resultPlaceholder">
+                        <div class="placeholder-graphic">
+                            <div class="graphic-circle">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="3"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="13" y2="12"/></svg>
+                            </div>
+                        </div>
+                        <h3>No Profile Verified</h3>
+                        <p>Upload a candidate resume on the left to extract background credentials and verify authenticity against LinkedIn.</p>
+                    </div>
+
+                    <!-- Extracted Details & Live Result -->
+                    <div class="result-details" id="resultContent" style="display: none;">
+                        <!-- Highlight Banner -->
+                        <div class="status-banner" id="statusSummaryBox">
+                            <div class="status-banner-icon" id="statusBannerIcon">✓</div>
+                            <div>
+                                <div class="status-title" id="statusSummaryTitle">Matched with LinkedIn profile</div>
+                                <div class="status-desc" id="statusSummaryDesc">Candidate credentials successfully verified against LinkedIn profile records.</div>
+                            </div>
+                        </div>
+
+                        <!-- Candidate Overview Card -->
+                        <div class="detail-cards-grid">
+                            <div class="profile-summary-header">
+                                <div>
+                                    <h3 class="candidate-display-name" id="resName">-</h3>
+                                    <div class="candidate-meta-row">
+                                        <span class="meta-item" id="resEmail">-</span>
+                                        <span class="meta-item" id="resPhone">-</span>
+                                        <span class="meta-item"><a href="#" id="resLinkedin" target="_blank" class="linkedin-pill-link">LinkedIn Profile ↗</a></span>
+                                    </div>
+                                </div>
+                                <div class="candidate-id-badge" id="resId">#1</div>
+                            </div>
+
+                            <div class="field-card">
+                                <div class="field-label">Academic Background</div>
+                                <div class="field-value" id="resEdu">-</div>
+                            </div>
+
+                            <div class="field-card">
+                                <div class="field-label">Professional Background & Experience</div>
+                                <div class="field-value" id="resExp">-</div>
+                            </div>
+
+                            <div class="field-card">
+                                <div class="field-label">Technical Competencies</div>
+                                <div class="skills-wrap" id="resSkills">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Bottom Table: Real-Time MySQL Database Records -->
+        <section class="card table-card">
+            <div class="card-header table-header">
+                <div>
+                    <h2>Candidate Repository</h2>
+                    <p class="table-subtitle">Verified candidate profiles and audit history stored in database.</p>
+                </div>
+                <div class="table-actions">
+                    <div class="search-box">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" id="searchFilter" placeholder="Search candidates...">
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="btnRefreshTable">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        Refresh Records
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="data-table" id="candidatesTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 70px;">#</th>
+                                <th style="width: 260px;">CANDIDATE</th>
+                                <th style="width: 130px;">LINKEDIN</th>
+                                <th style="width: 220px;">EDUCATION</th>
+                                <th>EXPERIENCE</th>
+                                <th style="width: 220px;">VERIFICATION STATUS</th>
+                                <th style="width: 130px;">PROCESSED ON</th>
+                            </tr>
+                        </thead>
+                        <tbody id="candidatesTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">No candidate records found in database. Upload a resume above.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Candidate Verification Portal • Automated Profile Intelligence & Experience Matching</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
